@@ -100,6 +100,7 @@ namespace pronto_pinocchio
 
                 a = pinocchio::getFrameVelocity(model_,data_,leg_id,pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED);
                 foot_vel = a.linear();
+                return true;
             }
             // function to set state dim
             void set_state_dim()

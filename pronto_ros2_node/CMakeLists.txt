@@ -3,6 +3,8 @@ project(pronto_ros2_node)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+  # upstream code is not clean for these; keep real problems (e.g. -Wreturn-type, -Wformat) visible
+  add_compile_options(-Wno-unused-parameter -Wno-reorder -Wno-sign-compare -Wno-unused-variable -Wno-unused-but-set-variable)
 endif()
 
 # find dependencies

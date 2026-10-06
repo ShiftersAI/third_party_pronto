@@ -169,7 +169,7 @@ namespace pronto
                 
 
                 }
-                RCLCPP_ERROR(this->get_logger(),"%d",conv_pro2pin.size());
+                RCLCPP_ERROR(this->get_logger(),"%zu",conv_pro2pin.size());
                 for(size_t i = 0; i< dof ; i++)
                 {
                     RCLCPP_INFO(get_logger(),"%s--%s--%d",jnt_n[conv_pro2pin[i]].c_str(),jnt_pin[i].c_str(),conv_pro2pin[i]);
