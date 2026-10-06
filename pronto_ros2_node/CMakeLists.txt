@@ -64,15 +64,15 @@ ament_target_dependencies(
   pronto_quadruped_ros
   pronto_quadruped_commons
   sensor_msgs
-  pinocchio
   nav_msgs
   pi3hat_moteus_int_msgs
   # mocap_msgs
   gazebo_msgs
   std_srvs
 )
+# pinocchio >= 3 exports only CMake targets, which ament_target_dependencies does not pick up
 target_link_libraries(
-  pronto_node  external_sensor
+  pronto_node  external_sensor pinocchio::pinocchio
 )
 
 if(BUILD_TESTING)

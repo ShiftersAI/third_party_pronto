@@ -58,10 +58,11 @@ ament_target_dependencies(
   "tf2_ros"
   "tf2_geometry_msgs"
   "nav_msgs"
-  "pinocchio"
   "urdf"
   "pi3hat_moteus_int_msgs"
 )
+# pinocchio >= 3 exports only CMake targets, which ament_target_dependencies does not pick up
+target_link_libraries(pronto_quadruped_ros pinocchio::pinocchio)
 
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
