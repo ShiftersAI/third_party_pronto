@@ -18,27 +18,7 @@ namespace pronto_pinocchio
     {
         Jac.setZero();
         // get the correct foot frame
-        pinocchio::FrameIndex leg_id;
-
-        switch (leg)
-        {
-            case LegID::LF:
-                leg_id = model_.getFrameId("LF_FOOT");
-                break;
-            case LegID::LH:
-                leg_id = model_.getFrameId("LH_FOOT");
-                break;
-            case LegID::RF:
-                leg_id = model_.getFrameId("RF_FOOT");
-                break;
-            case LegID::RH:
-                leg_id = model_.getFrameId("RH_FOOT");
-                break;
-
-            default:
-                return false;
-                break;
-        }
+        pinocchio::FrameIndex leg_id = foot_frame_id_[leg];
 
         //get the complete jacobian in world frame
         q_pin_.block<3,1>(3,0) = Eigen::Vector3d::Zero();

@@ -3,7 +3,10 @@
 #include "Eigen/Dense"
 #include "Eigen/Core"
 #include "Eigen/Geometry"
+#include <array>
 #include <map>
+#include <stdexcept>
+#include <string>
 #include <tuple>
 #include "pronto_quadruped_commons/feet_contact_forces.h"
 #include "pronto_quadruped_commons/feet_jacobians.h"
@@ -42,7 +45,7 @@ namespace pronto_pinocchio
 
             Pinocchio_Feet_Force()
             {}
-            Pinocchio_Feet_Force(pinocchio::Model mod,int ker,int DOF,std::vector<int> conv_pro2pin):
+            Pinocchio_Feet_Force(pinocchio::Model mod,int ker,int DOF,std::vector<int> conv_pro2pin,const std::array<std::string,LEG_NUM>& foot_names):
             model_(mod),
             data_(pinocchio::Data(mod)),
             ker_(ker),
@@ -65,6 +68,15 @@ namespace pronto_pinocchio
                 tau_rnea_ = Eigen::VectorXd::Zero(DOF_);
                 tau_msr_ = Eigen::VectorXd::Zero(DOF_);
                 Jac_.resize(6,DOF_+FB_VEL);
+                // foot frames, indexed by LegID (LF, RF, LH, RH)
+                for(size_t i = 0; i < LEG_NUM; i++)
+                {
+                    if(!model_.existFrame(foot_names[i]))
+                    {
+                        throw std::invalid_argument("foot frame '" + foot_names[i] + "' not found in the URDF");
+                    }
+                    foot_frame_id_[i] = model_.getFrameId(foot_names[i]);
+                }
                 for(auto &jnt_ptr:model_.names)
                 {
 
@@ -82,25 +94,7 @@ namespace pronto_pinocchio
                 pinocchio::FrameIndex leg_id;
                 pinocchio::Motion a;
                 foot_vel.setZero();
-                switch (leg)
-                {
-                    case LegID::LF:
-                        leg_id = model_.getFrameId("LF_FOOT");
-                        break;
-                    case LegID::LH:
-                        leg_id = model_.getFrameId("LH_FOOT");
-                        break;
-                    case LegID::RF:
-                        leg_id = model_.getFrameId("RF_FOOT");
-                        break;
-                    case LegID::RH:
-                        leg_id = model_.getFrameId("RH_FOOT");
-                        break;
-
-                    default:
-                        return false;
-                        break;
-                }
+                leg_id = foot_frame_id_[leg];
                 pinocchio::updateFramePlacement(model_,data_,leg_id);
 
 
@@ -175,22 +169,7 @@ namespace pronto_pinocchio
 
                 pinocchio::SE3 T;
                 Eigen::Vector3d f_pos;
-                pinocchio::FrameIndex leg_id;
-                switch (leg)
-                {
-                    case pronto::quadruped::LegID::LF:
-                        leg_id = model_.getFrameId("LF_FOOT");
-                        break;
-                    case pronto::quadruped::LegID::RF:
-                        leg_id = model_.getFrameId("RF_FOOT");
-                        break;
-                    case pronto::quadruped::LegID::LH:
-                        leg_id = model_.getFrameId("LH_FOOT");
-                        break;
-                    case pronto::quadruped::LegID::RH:
-                        leg_id = model_.getFrameId("RH_FOOT");
-                        break;
-                }
+                pinocchio::FrameIndex leg_id = foot_frame_id_[leg];
                 T = data_.oMf[leg_id];
                 f_pos = T.translation();
                 return f_pos;
@@ -212,6 +191,7 @@ namespace pronto_pinocchio
             std::vector<std::string> pin_jnt_name_ = {};
             Eigen::Matrix3d R_w2b_;
             int updated_ = 0;
+            std::array<pinocchio::FrameIndex,LEG_NUM> foot_frame_id_ = {};
 
 
     };

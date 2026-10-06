@@ -18,6 +18,8 @@
 #include "sensor_msgs/msg/imu.hpp"
 
 #include <algorithm>
+#include <array>
+#include <stdexcept>
 #include <pinocchio/parsers/urdf.hpp>
 #include <pinocchio/algorithm/kinematics.hpp>
 #include <string>
@@ -46,6 +48,17 @@ namespace pronto
                     this->declare_parameter<std::string>("urdf_file","");
                     this->declare_parameter<std::vector<std::string>>("init_sensors",std::vector<std::string>());
                     this->declare_parameter<std::vector<std::string>>("active_sensors",std::vector<std::string>());
+                    // URDF joint names in Pronto leg order (LF, RF, LH, RH), each as HAA, HFE, KFE
+                    this->declare_parameter<std::vector<std::string>>("joint_names",{
+                        "LF_HAA","LF_HFE","LF_KFE",
+                        "RF_HAA","RF_HFE","RF_KFE",
+                        "LH_HAA","LH_HFE","LH_KFE",
+                        "RH_HAA","RH_HFE","RH_KFE"});
+                    // URDF foot frame names
+                    this->declare_parameter<std::string>("LF_FOOT_name","LF_FOOT");
+                    this->declare_parameter<std::string>("RF_FOOT_name","RF_FOOT");
+                    this->declare_parameter<std::string>("LH_FOOT_name","LH_FOOT");
+                    this->declare_parameter<std::string>("RH_FOOT_name","RH_FOOT");
             };
             ~Pronto_Ros2() = default;
 
@@ -118,20 +131,16 @@ namespace pronto
                     RCLCPP_ERROR_STREAM(get_logger() ,e.what());
                     throw(std::logic_error("not correct xacro file"));
                 }
-                std::vector<std::string> jnt_n =  {
-                                                    "LF_HAA",
-                                                    "LF_HFE",
-                                                    "LF_KFE",
-                                                    "RF_HAA",
-                                                    "RF_HFE",
-                                                    "RF_KFE",
-                                                    "LH_HAA",
-                                                    "LH_HFE",
-                                                    "LH_KFE",
-                                                    "RH_HAA",
-                                                    "RH_HFE",
-                                                    "RH_KFE"
-                                                }, jnt_pin ;
+                std::vector<std::string> jnt_n = this->get_parameter("joint_names").as_string_array(), jnt_pin;
+                if(jnt_n.size() != 12)
+                {
+                    throw(std::invalid_argument("joint_names must list 12 joints: LF, RF, LH, RH legs, each as HAA, HFE, KFE"));
+                }
+                const std::array<std::string,4> foot_names = {
+                    this->get_parameter("LF_FOOT_name").as_string(),
+                    this->get_parameter("RF_FOOT_name").as_string(),
+                    this->get_parameter("LH_FOOT_name").as_string(),
+                    this->get_parameter("RH_FOOT_name").as_string()};
                 std::vector<pinocchio::JointIndex> pin_jnt_ind;
                 
                 std::vector<int> conv_pro2pin;
@@ -232,7 +241,7 @@ namespace pronto
                         bool sim ;
                         get_parameter(*it+".sim",sim);
                         
-                        feet_force_ = pronto_pinocchio::Pinocchio_Feet_Force(model_,ax_ker,dof,conv_pro2pin);
+                        feet_force_ = pronto_pinocchio::Pinocchio_Feet_Force(model_,ax_ker,dof,conv_pro2pin,foot_names);
                         jacs_ = pronto_pinocchio::Pinocchio_Jacobian(&feet_force_);
                         fk_ = pronto_pinocchio::Pinocchio_FK(&feet_force_);
 
