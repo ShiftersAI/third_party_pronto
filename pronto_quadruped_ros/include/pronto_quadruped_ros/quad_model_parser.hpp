@@ -38,8 +38,9 @@ namespace pronto
     class Model_Parser
     {
         public:
-            // build the model from urdf file
-            Model_Parser(std::string urdf_path);
+            // build the model from urdf file; joint_names lists the URDF joints in leg order
+            // LF, RF, LH, RH, each as HAA, HFE, KFE (a missing HAA allows 2-joint legs)
+            Model_Parser(std::string urdf_path, const std::vector<std::string>& joint_names);
 
             ~Model_Parser(){};
 

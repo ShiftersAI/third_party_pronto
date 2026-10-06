@@ -4,15 +4,21 @@ namespace pronto
 {
 
     Model_Parser::Model_Parser(
-        std::string urdf_path
+        std::string urdf_path,
+        const std::vector<std::string>& joint_names
     )
     {
-        bool first;
-        size_t ind;
-        int leg_jnt,parse_leg_count,parse_jnt_leg_count;
+        // offset of each leg in joint_names
+        const std::map<std::string,size_t> leg_offset = {{"LF",0},{"RF",3},{"LH",6},{"RH",9}};
+        int parse_jnt_leg_count;
 
         std::map<std::string,std::array<double,3>> leg_map;
-        if(!model_.initString(urdf_path))
+        if(joint_names.size() != leg_offset.size()*quadruped_jnt_id.size())
+        {
+            RCLCPP_ERROR(rclcpp::get_logger("URDF_parser"),"Expected %zu joint names, got %zu",leg_offset.size()*quadruped_jnt_id.size(),joint_names.size());
+            urdf_usable_ = false;
+        }
+        else if(!model_.initString(urdf_path))
         {
             RCLCPP_INFO(rclcpp::get_logger("URDF_MODEL_PARSER"),"The Model parsing throw an error");
             urdf_usable_ = false;
@@ -21,34 +27,22 @@ namespace pronto
         {
             RCLCPP_INFO(rclcpp::get_logger("URDF_MODEL_PARSER"),"The Model parsing  is performed corctly");
             urdf_usable_ = true;
-            parse_leg_count = 0;
-            for(ind = 0; ind < quadruped_leg_id.size(); ind ++)
+            for(size_t ind = 0; ind < quadruped_leg_id.size(); ind ++)
             {
+                // look the leg's joints up by their exact configured names
                 parse_jnt_leg_count = 0;
-                first = true;
-                for(auto &model_jnt:model_.joints_)
+                for(size_t j = 0; j < quadruped_jnt_id.size(); j++)
                 {
-                    // RCLCPP_INFO(rclcpp::get_logger("URDF_Parser"),"the parse jnt is %s",model_jnt.first.c_str());
-                    if(model_jnt.first.find(quadruped_leg_id[ind]) != std::string::npos)
+                    auto model_jnt = model_.joints_.find(joint_names[leg_offset.at(quadruped_leg_id[ind]) + j]);
+                    if(model_jnt == model_.joints_.end())
                     {
-                        // RCLCPP_INFO(rclcpp::get_logger("URDF_Parser"),"compare parse jnt is %s with leg id %s",model_jnt.first.c_str(),quadruped_leg_id[ind].c_str());
-                        if(first)
-                        {
-                            parse_leg_count++;
-                            first = false;
-                        }
-                        for(auto &jnt_leg_name:quadruped_jnt_id)
-                        {
-                            auto axis = model_jnt.second->axis;
-                            if(model_jnt.first.find(jnt_leg_name) != std::string::npos)
-                            {
-                                if(axis.x != 0.0 || axis.y != 0.0 || axis.z != 0.0)
-                                {
-                                    parse_jnt_leg_count ++;
-                                    leg_map.insert({jnt_leg_name,{axis.x,axis.y,axis.z}});
-                                }
-                            }
-                        }
+                        continue;
+                    }
+                    auto axis = model_jnt->second->axis;
+                    if(axis.x != 0.0 || axis.y != 0.0 || axis.z != 0.0)
+                    {
+                        parse_jnt_leg_count ++;
+                        leg_map.insert({quadruped_jnt_id[j],{axis.x,axis.y,axis.z}});
                     }
                 }
 
@@ -72,11 +66,6 @@ namespace pronto
             // jnt_names_.resize(0);
             // jnt_ptr_.resize(0);
             // get_jnt_list();
-            }
-            if(parse_leg_count != 4)
-            {
-                RCLCPP_ERROR(rclcpp::get_logger("URDF_parser"),"The leg parsed are %d, its not correct",parse_leg_count);
-                urdf_usable_=false;
             }
         }
     };

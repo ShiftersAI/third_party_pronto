@@ -110,8 +110,13 @@ namespace pronto
                 bool publish_head = false;
                 std::string topic;
                 Eigen::VectorXd reference_config;
+                std::vector<std::string> jnt_n = this->get_parameter("joint_names").as_string_array(), jnt_pin;
+                if(jnt_n.size() != 12)
+                {
+                    throw(std::invalid_argument("joint_names must list 12 joints: LF, RF, LH, RH legs, each as HAA, HFE, KFE"));
+                }
                 // parse the urdf to get imu base tf
-                auto mod_parse_ = std::make_unique<Model_Parser>(urdf_file_);
+                auto mod_parse_ = std::make_unique<Model_Parser>(urdf_file_, jnt_n);
                 int dof;
                 Axis_Direction ax_ker;
                 // pinocchio::urdf::buildModelFromXML(urdf_file_,pinocchio::JointModel::fl)
@@ -131,11 +136,6 @@ namespace pronto
                     RCLCPP_ERROR_STREAM(get_logger() ,e.what());
                     throw(std::logic_error("not correct xacro file"));
                 }
-                std::vector<std::string> jnt_n = this->get_parameter("joint_names").as_string_array(), jnt_pin;
-                if(jnt_n.size() != 12)
-                {
-                    throw(std::invalid_argument("joint_names must list 12 joints: LF, RF, LH, RH legs, each as HAA, HFE, KFE"));
-                }
                 const std::array<std::string,4> foot_names = {
                     this->get_parameter("LF_FOOT_name").as_string(),
                     this->get_parameter("RF_FOOT_name").as_string(),
@@ -144,9 +144,19 @@ namespace pronto
                 std::vector<pinocchio::JointIndex> pin_jnt_ind;
                 
                 std::vector<int> conv_pro2pin;
-                jnt_pin.resize(dof);
+                // map in the Pinocchio model's joint order (URDF tree order), which the q/tau
+                // vectors use; the URDF parser's joint list is alphabetical
+                pinocchio::urdf::buildModelFromXML(urdf_file_,root_fb,model_);
+                for(auto &jnt_name:model_.names)
+                {
+                    if(jnt_name != "universe" && jnt_name != "root_joint")
+                        jnt_pin.push_back(jnt_name);
+                }
+                if(jnt_pin.size() != static_cast<size_t>(dof))
+                {
+                    throw(std::logic_error("the URDF has " + std::to_string(jnt_pin.size()) + " moving joints, expected " + std::to_string(dof)));
+                }
                 conv_pro2pin.resize(dof);
-                mod_parse_->get_jnt_names(jnt_pin);
                 bool exist;
                 for(size_t i = 0; i < jnt_n.size(); i++)
                 {
@@ -174,7 +184,6 @@ namespace pronto
                 {
                     RCLCPP_INFO(get_logger(),"%s--%s--%d",jnt_n[conv_pro2pin[i]].c_str(),jnt_pin[i].c_str(),conv_pro2pin[i]);
                 }
-                pinocchio::urdf::buildModelFromXML(urdf_file_,root_fb,model_);
                 
 
                 // create front end
