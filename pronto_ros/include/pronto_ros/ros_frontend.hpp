@@ -84,8 +84,9 @@ public:
             return;
         }
 
-        rclcpp::QoS qos(10);
-        qos.reliability(rclcpp::ReliabilityPolicy::Reliable);
+        // best effort accepts both best-effort (e.g. IMU drivers) and reliable publishers
+        rclcpp::QoS qos(100);
+        qos.best_effort();
         RCLCPP_INFO_STREAM(nh_->get_logger(), sensor_id << " subscribing to " << topic
                                                       << " with SecondaryMsgT = " << type_name<SecondaryMsgT>());
         secondary_subscribers_[sensor_id] = nh_->create_subscription<SecondaryMsgT>(
@@ -190,8 +191,9 @@ void ROSFrontEnd::addInitModule(SensingModule<MsgT>& module,
     }
     RCLCPP_INFO_STREAM(nh_->get_logger(), "Sensor init id: " << sensor_id);
     RCLCPP_INFO_STREAM(nh_->get_logger(), "Topic: " << topic);
-    rclcpp::QoS qos(10);
-    qos.reliability(rclcpp::ReliabilityPolicy::Reliable);
+    // best effort accepts both best-effort (e.g. IMU drivers) and reliable publishers
+    rclcpp::QoS qos(100);
+    qos.best_effort();
     // add the sensor to the list of sensor that require initialization
     std::pair<SensorId, bool> init_id_pair(sensor_id, false);
     initialized_list_.insert(init_id_pair);
@@ -229,8 +231,9 @@ void ROSFrontEnd::addSensingModule(SensingModule<MsgT>& module,
     RCLCPP_INFO_STREAM(nh_->get_logger(), "Roll forward: " << (roll_forward ? "yes" : "no"));
     RCLCPP_INFO_STREAM(nh_->get_logger(), "Publish head: " << (publish_head ? "yes" : "no"));
     RCLCPP_INFO_STREAM(nh_->get_logger(), "Topic: " << topic);
-    rclcpp::QoS qos(10);
-    qos.reliability(rclcpp::ReliabilityPolicy::Reliable);
+    // best effort accepts both best-effort (e.g. IMU drivers) and reliable publishers
+    rclcpp::QoS qos(100);
+    qos.best_effort();
     // store the will to roll forward when the message is received
     std::pair<SensorId, bool> roll_pair(sensor_id, roll_forward);
     roll_forward_.insert(roll_pair);
