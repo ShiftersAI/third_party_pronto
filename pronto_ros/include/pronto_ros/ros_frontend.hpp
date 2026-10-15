@@ -161,6 +161,7 @@ private:
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf2_broadcaster_;
     geometry_msgs::msg::TransformStamped transform_msg_;
     bool publish_tf_ = false;
+    rclcpp::Duration tf_min_period_{0, 0};
 
     geometry_msgs::msg::PoseWithCovarianceStamped pose_msg_;
     geometry_msgs::msg::TwistWithCovarianceStamped twist_msg_;
@@ -422,8 +423,11 @@ void ROSFrontEnd::callback(std::shared_ptr<MsgT> msg, const SensorId& sensor_id)
                 // "TF_REPEATED_DATA ignoring data with redundant timestamp for frame base at time"
                 // are otherwise printed to the terminal.
                 // Cf. https://github.com/ros/geometry2/issues/467#issuecomment-751572836
+                // tf_min_period thins the TF stream; the pose and twist topics keep every
+                // update.
                 rclcpp::Time new_stamp = pose_msg_.header.stamp;
-                if (new_stamp > transform_msg_.header.stamp) {
+                rclcpp::Time last_stamp = transform_msg_.header.stamp;
+                if (new_stamp > last_stamp && new_stamp - last_stamp >= tf_min_period_) {
                     transform_msg_.transform.translation.x = pose_msg_.pose.pose.position.x;
                     transform_msg_.transform.translation.y = pose_msg_.pose.pose.position.y;
                     transform_msg_.transform.translation.z = pose_msg_.pose.pose.position.z;

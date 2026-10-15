@@ -1,4 +1,5 @@
 #include "pronto_ros/ros_frontend.hpp"
+#include <stdexcept>
 
 namespace pronto {
 using SensorId = pronto::ROSFrontEnd::SensorId;
@@ -24,6 +25,8 @@ ROSFrontEnd::ROSFrontEnd(rclcpp::Node::SharedPtr nh, bool verbose) :
     nh_->declare_parameter<bool>("publish_tf",false);
     nh_->declare_parameter<bool>("publish_pose",false);
     nh_->declare_parameter<std::string>("tf_child_frame_id",tf_child_frame_id);
+    // Minimum time between TF messages, s; 0 sends one per filter update (the IMU rate).
+    nh_->declare_parameter<double>("tf_min_period",0.0);
     nh_->declare_parameter<int>("utime_history_span",history_span);
 
     // looking for relative param names, the nodehandle namespace will be added
@@ -59,6 +62,12 @@ ROSFrontEnd::ROSFrontEnd(rclcpp::Node::SharedPtr nh, bool verbose) :
                 if(!nh_->get_parameter("tf_child_frame_id", tf_child_frame_id)){
                     RCLCPP_WARN_STREAM(nh_->get_logger(), "Couldn't get param \"tf_frame_id\". Setting default to \"base\".");
                 }
+                const double tf_min_period = nh_->get_parameter("tf_min_period").as_double();
+                if (tf_min_period < 0.0) {
+                    throw std::invalid_argument("tf_min_period must be >= 0, got " + std::to_string(tf_min_period));
+                }
+                tf_min_period_ = rclcpp::Duration::from_seconds(tf_min_period);
+                RCLCPP_INFO_STREAM(nh_->get_logger(), "TF minimum period: " << tf_min_period << " s");
                 transform_msg_.header.frame_id = pose_frame_id;
                 // NOTE implicitly assuming the twist frame id is the base frame
                 transform_msg_.child_frame_id = tf_child_frame_id;

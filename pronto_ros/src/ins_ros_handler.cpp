@@ -10,8 +10,6 @@ namespace pronto {
 
 InsHandlerROS::InsHandlerROS(rclcpp::Node::SharedPtr nh, Eigen::Isometry3d ins_to_body) : nh_(nh)
 {
-    tf2::BufferCore tf_imu_to_body_buffer_;
-    tf2_ros::TransformListener tf_imu_to_body_listener_(tf_imu_to_body_buffer_);
     // //allocate params
     const std::string ins_param_prefix = "ins.";
     // std::string imu_frame = "imu";
