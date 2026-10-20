@@ -141,6 +141,11 @@ void LegOdometer::setInitVelocityStd(const Eigen::Vector3d& vel_std){
     std::cerr << initial_vel_cov_.format(clean_fmt) << std::endl;
 }
 
+void LegOdometer::setCompliance(double compliance, double tau){
+    compliance_ = compliance;
+    compliance_tau_ = tau;
+}
+
 void LegOdometer::setInitPositionCov(const Eigen::Matrix3d& pos_cov){
     pos_cov_ = pos_cov;
 }
@@ -174,6 +179,18 @@ bool LegOdometer::estimateVelocity(const uint64_t utime,
     // }
     // std::cerr << "the qdot estimate vel are "<< qd.transpose()<<std::endl;
     foot_pos_ = forward_kinematics_.getFeetPos(q);
+    if (compliance_ > 0) {
+        if (grf_utime_ != 0 && utime > grf_utime_) {
+            const double dt = 1e-6 * static_cast<double>(utime - grf_utime_);
+            const Eigen::Array4d filt = grf_filt_ + dt / (compliance_tau_ + dt) * (grf_ - grf_filt_);
+            grf_rate_ = (filt - grf_filt_) / dt;
+            grf_filt_ = filt;
+        } else {
+            grf_filt_ = grf_;
+            grf_rate_.setZero();
+        }
+        grf_utime_ = utime;
+    }
     for(int leg = LF; leg <= RH; leg++){
         // auto qd_block = qd.block<3,1>(leg * 3, 0);
 
@@ -181,6 +198,7 @@ bool LegOdometer::estimateVelocity(const uint64_t utime,
         base_vel_leg_[LegID(leg)] = - feet_jacobians_.getFootJacobian(q, LegID(leg))
                             * qd.block<3,1>(leg * 3, 0)
                               - omega.cross(foot_pos_[LegID(leg)]);
+        base_vel_leg_[LegID(leg)](2) -= compliance_ * grf_rate_(leg);
 
         // base_vel_leg_[LegID(leg)] = -feet_jacobians_.getFootJacobian(q,LegID(leg)).block
         //                       - omega.cross(foot_pos_[LegID(leg)]);

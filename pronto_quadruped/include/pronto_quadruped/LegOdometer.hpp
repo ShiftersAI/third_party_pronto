@@ -123,6 +123,10 @@ public:
 
     void setInitVelocityCov(const Matrix3d& vel_cov) override;
     void setInitVelocityStd(const Vector3d& vel_std) override;
+    // Leg compliance (m/N, 0 = rigid legs): a loaded leg is shorter than its kinematics by
+    // compliance * GRF_z, so its rate of change (GRF low-passed with time constant tau, s) is
+    // removed from each leg's vertical velocity.
+    void setCompliance(double compliance, double tau);
     void setInitPositionCov(const Matrix3d& pos_cov) override;
     void setGrf(const LegVectorMap& grf) override;
 
@@ -172,6 +176,11 @@ protected:
     Eigen::Vector3d xd_b_,mov_ave, mov_ave_peak;  ///< estimated velocity, base frame
 
     Eigen::Array4d grf_delta_;
+    double compliance_ = 0.0;
+    double compliance_tau_ = 0.005;
+    Eigen::Array4d grf_filt_ = Eigen::Array4d::Zero();
+    Eigen::Array4d grf_rate_ = Eigen::Array4d::Zero();
+    uint64_t grf_utime_ = 0;
     Eigen::Array4d grf_;
 
     std::vector<Eigen::Vector3d> moving_average_;

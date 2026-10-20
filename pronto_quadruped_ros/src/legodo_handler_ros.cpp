@@ -84,6 +84,15 @@ LegodoHandlerBase::LegodoHandlerBase(rclcpp::Node::SharedPtr nh,
     RCLCPP_INFO_STREAM(nh_->get_logger(), "[LegodoHandler] no_contact_timeout = " << no_contact_timeout
                        << " s, no_contact_sigma = " << no_contact_sigma_ << " m/s");
 
+    const double compliance = nh_->declare_parameter<double>(prefix + "compliance", 0.0);
+    const double compliance_tau = nh_->declare_parameter<double>(prefix + "compliance_tau", 0.005);
+    if (compliance < 0.0 || compliance_tau <= 0.0) {
+        throw std::invalid_argument("legodo.compliance must be >= 0 m/N and legodo.compliance_tau > 0 s");
+    }
+    leg_odometer_->setCompliance(compliance, compliance_tau);
+    RCLCPP_INFO_STREAM(nh_->get_logger(), "[LegodoHandler] compliance = " << compliance
+                       << " m/N, compliance_tau = " << compliance_tau << " s");
+
     Eigen::Vector3d r_legodo_init(r_vx, r_vy, r_vz);
     leg_odometer_->setInitVelocityStd(r_legodo_init);
 
