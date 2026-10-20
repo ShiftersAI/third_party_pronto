@@ -24,6 +24,7 @@
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <geometry_msgs/msg/accel_stamped.hpp>
+#include <stdexcept>
 // #include <tf2/convert.h>
 #include "pronto_ros/pronto_ros_conversions.hpp"
 
@@ -72,6 +73,16 @@ LegodoHandlerBase::LegodoHandlerBase(rclcpp::Node::SharedPtr nh,
         RCLCPP_WARN_STREAM(nh_->get_logger(), "Could not retrieve r_vz from parameter server. Setting to default.");
         r_vz = 0.1;
     }
+
+    const double no_contact_timeout = nh_->declare_parameter<double>(prefix + "no_contact_timeout", 0.0);
+    no_contact_sigma_ = nh_->declare_parameter<double>(prefix + "no_contact_sigma", 0.0);
+    if (no_contact_timeout < 0.0 || (no_contact_timeout > 0.0 && no_contact_sigma_ <= 0.0)) {
+        throw std::invalid_argument("legodo.no_contact_timeout must be >= 0 s and, when > 0, "
+                                    "legodo.no_contact_sigma must be > 0 m/s");
+    }
+    no_contact_timeout_ = static_cast<uint64_t>(no_contact_timeout * 1e6);
+    RCLCPP_INFO_STREAM(nh_->get_logger(), "[LegodoHandler] no_contact_timeout = " << no_contact_timeout
+                       << " s, no_contact_sigma = " << no_contact_sigma_ << " m/s");
 
     Eigen::Vector3d r_legodo_init(r_vx, r_vy, r_vz);
     leg_odometer_->setInitVelocityStd(r_legodo_init);
@@ -229,6 +240,9 @@ LegodoHandlerBase::Update *LegodoHandlerBase::computeVelocity()
 
     // and pass them over to the leg odometer
     leg_odometer_->setGrf(grf_);
+    if (last_legodo_utime_ == 0) {
+        last_legodo_utime_ = utime_;  // the timeout also runs from the first message
+    }
     // NB: All required variables are updated in their respective processMessage() methods
     if (leg_odometer_->estimateVelocity(utime_,
                                        q_,
@@ -272,9 +286,19 @@ LegodoHandlerBase::Update *LegodoHandlerBase::computeVelocity()
             vel_raw_->publish(twist);
         }
 
+        last_legodo_utime_ = utime_;
         return new pronto::RBISIndexedMeasurement(RigidBodyState::velocityInds(),
                                                  xd_,
                                                  cov_legodo_,
+                                                 LegodoHandlerBase::Update::legodo,
+                                                 utime_);
+    } else if (no_contact_timeout_ > 0 &&
+               utime_ - last_legodo_utime_ > no_contact_timeout_) {
+        RCLCPP_WARN_STREAM_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 2000,
+                                    "[LegodoHandlerBase::computeVelocity] No leg odometry: assuming zero velocity");
+        return new pronto::RBISIndexedMeasurement(RigidBodyState::velocityInds(),
+                                                 Eigen::Vector3d::Zero(),
+                                                 Eigen::Matrix3d::Identity() * no_contact_sigma_ * no_contact_sigma_,
                                                  LegodoHandlerBase::Update::legodo,
                                                  utime_);
     } else {
