@@ -93,6 +93,15 @@ LegodoHandlerBase::LegodoHandlerBase(rclcpp::Node::SharedPtr nh,
     RCLCPP_INFO_STREAM(nh_->get_logger(), "[LegodoHandler] compliance = " << compliance
                        << " m/N, compliance_tau = " << compliance_tau << " s");
 
+    const std::vector<double> joint_offsets = nh_->declare_parameter<std::vector<double>>(
+        prefix + "joint_offsets", std::vector<double>(12, 0.0));
+    if (joint_offsets.size() != 12) {
+        throw std::invalid_argument("legodo.joint_offsets needs 12 values (rad), Pronto joint order");
+    }
+    for (int j = 0; j < 12; j++) {
+        joint_offsets_(j) = joint_offsets[j];
+    }
+
     Eigen::Vector3d r_legodo_init(r_vx, r_vy, r_vz);
     leg_odometer_->setInitVelocityStd(r_legodo_init);
 
@@ -335,6 +344,7 @@ LegodoHandlerROS::Update* LegodoHandlerROS::processMessage(const sensor_msgs::ms
       RCLCPP_WARN(nh_->get_logger(), "[LegodoHandlerROS::processMessage] Could not process joint state from ROS!");
       return nullptr;
     }
+    q_ += joint_offsets_;
     getPreviousState(est);
 
     stance_estimator_->setJointStates(nsec_, q_, qd_, tau_, orientation_,
@@ -407,6 +417,7 @@ LegodoHandlerBase::Update * FootSensorLegodoHandlerROS::processMessage(const sen
     RCLCPP_WARN(nh_->get_logger(),"[FootSensorLegodoHandlerROS::processMessage] Could not process joint state from ROS!");
     return nullptr;
   }
+  q_ += joint_offsets_;
   getPreviousState(est);
   // the data to compute the stance are processed in processSecondaryMessage()
   stance_estimator_->getStance(stance_, stance_prob_);
@@ -443,6 +454,7 @@ LegodoHandlerBase::Update * ForceSensorLegodoHandlerROS::processMessage(const se
     RCLCPP_WARN(nh_->get_logger(),"[ForceSensorLegodoHandlerROS::processMessage] Could not extract joint states from ROS message!");
     return nullptr;
   }
+  q_ += joint_offsets_;
   getPreviousState(est);
   // the data to compute the stance are processed in processSecondaryMessage()
   stance_estimator_->getStance(stance_, stance_prob_);
@@ -500,6 +512,7 @@ LegodoHandlerPinRos::Update* LegodoHandlerPinRos::processMessage( const pi3hat_m
       RCLCPP_WARN(nh_->get_logger(), "[LegodoHandlerROS::processMessage] Could not process joint state from ROS!");
       return nullptr;
     }
+    q_ += joint_offsets_;
     getPreviousState(est);
 
     stance_estimator_->setJointStates(nsec_, q_, qd_, tau_, orientation_,
@@ -541,6 +554,7 @@ LegodoHandlerPinRos_Sim::Update* LegodoHandlerPinRos_Sim::processMessage( const 
       RCLCPP_WARN(nh_->get_logger(), "[LegodoHandlerROS::processMessage] Could not process joint state from ROS!");
       return nullptr;
     }
+    q_ += joint_offsets_;
     getPreviousState(est);
 
     stance_estimator_->setJointStates(nsec_, q_, qd_, tau_, orientation_,

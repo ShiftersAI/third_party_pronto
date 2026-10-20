@@ -113,6 +113,9 @@ protected:
     JointState qd_;
     JointState qdd_;
     JointState tau_;
+    // Joint zero corrections (rad, Pronto joint order LF RF LH RH x HAA HFE KFE), added to every
+    // measured joint position before kinematics, Jacobians and contact forces.
+    JointState joint_offsets_ = JointState::Zero();
 
     RBIS head_state_;
     RBIM head_cov_;
