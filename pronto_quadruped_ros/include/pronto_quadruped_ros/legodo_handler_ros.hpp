@@ -147,12 +147,6 @@ protected:
     rclcpp::Publisher<pronto_msgs::msg::VelocityWithSigmaBounds>::SharedPtr vel_sigma_bounds_pub_;
     std::vector<std::string> jnt_names_;
     bool debug_ = true;  // Debug output including CSV output
-    // Without a leg odometry velocity (no feet on the ground: lifted, sitting) the filter
-    // integrates the IMU alone and runs away within seconds. After no_contact_timeout_ (us;
-    // 0 disables) without one, a zero velocity with sigma no_contact_sigma_ (m/s) bounds it.
-    uint64_t no_contact_timeout_ = 0;
-    double no_contact_sigma_ = 0.0;
-    uint64_t last_legodo_utime_ = 0;
     bool output_log_to_file_ = true;
     geometry_msgs::msg::WrenchStamped wrench_msg_;
     pronto_msgs::msg::QuadrupedStance stance_msg_;
