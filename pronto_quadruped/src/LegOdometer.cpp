@@ -27,6 +27,7 @@
 #include <boost/math/distributions/normal.hpp>
 #include <sstream>
 #include <cmath>
+#include <limits>
 
 namespace pronto {
 
@@ -180,14 +181,26 @@ bool LegOdometer::estimateVelocity(const uint64_t utime,
     // std::cerr << "the qdot estimate vel are "<< qd.transpose()<<std::endl;
     foot_pos_ = forward_kinematics_.getFeetPos(q);
     if (compliance_ > 0) {
-        if (grf_utime_ != 0 && utime > grf_utime_) {
-            const double dt = 1e-6 * static_cast<double>(utime - grf_utime_);
-            const Eigen::Array4d filt = grf_filt_ + dt / (compliance_tau_ + dt) * (grf_ - grf_filt_);
-            grf_rate_ = (filt - grf_filt_) / dt;
-            grf_filt_ = filt;
-        } else {
-            grf_filt_ = grf_;
-            grf_rate_.setZero();
+        const bool have_dt = grf_utime_ != 0 && utime > grf_utime_;
+        const double dt = have_dt ? 1e-6 * static_cast<double>(utime - grf_utime_) : 0.0;
+        for (int leg = LF; leg <= RH; leg++) {
+            if (!std::isfinite(grf_(leg))) {
+                // Reject the correction and reset the leg's filter (NaN state) so it restarts
+                // from the next valid force instead of keeping the invalid value forever.
+                if (std::isfinite(grf_filt_(leg))) {
+                    std::cerr << "[ LegOdometer ] Non-finite GRF on leg " << leg
+                              << ": no compliance correction until it is valid again" << std::endl;
+                }
+                grf_filt_(leg) = std::numeric_limits<double>::quiet_NaN();
+                grf_rate_(leg) = 0.0;
+            } else if (!have_dt || !std::isfinite(grf_filt_(leg))) {
+                grf_filt_(leg) = grf_(leg);
+                grf_rate_(leg) = 0.0;
+            } else {
+                const double filt = grf_filt_(leg) + dt / (compliance_tau_ + dt) * (grf_(leg) - grf_filt_(leg));
+                grf_rate_(leg) = (filt - grf_filt_(leg)) / dt;
+                grf_filt_(leg) = filt;
+            }
         }
         grf_utime_ = utime;
     }
